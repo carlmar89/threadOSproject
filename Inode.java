@@ -28,9 +28,9 @@ public class Inode
 
 	}
 
-	}
-
-	int toDisk( short iNumber ) {                  // save to disk as the i-th inode
-	  // design it by yourself.
+	int toDisk( short iNumber ) 
+	{
+		// save to disk as the i-th inode
+		// design it by yourself.
 	}
 }

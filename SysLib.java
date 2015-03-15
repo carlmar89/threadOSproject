@@ -1,6 +1,53 @@
 import java.util.*;
 
 public class SysLib {
+
+    //NEW METHODS
+
+	public static int format(int files)
+	{
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.FORMAT, files, null);
+	}
+
+	public static int open(String fileName, String mode)
+	{
+		String[] args = {fileName, mode};
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.OPEN, 0, args);
+	}
+
+	public static int read(int fd, byte[] buffer)
+	{
+
+	}
+
+	public static int write(int fd, byte[] buffer)
+	{
+
+	}
+
+	public static int seek(int fd, int offset, int whence)
+	{
+		int[] args = {offset, whence};
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.SEEK, fd, args);
+	}
+
+	public static int close(int fd)
+	{
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.CLOSE, fd, null);
+	}
+
+	public static int delete(String fileName)
+	{
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.DELETE, 0, fileName);
+	}
+
+	public static int fsize(inf fd)
+	{
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.SIZE, fd, null);
+	}
+
+    //PREVIOUSLY EXISTING METHODS
+
     public static int exec( String args[] ) {
         return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
 				 Kernel.EXEC, 0, args );
