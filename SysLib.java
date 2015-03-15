@@ -17,12 +17,12 @@ public class SysLib {
 
 	public static int read(int fd, byte[] buffer)
 	{
-
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.READ, fd, buffer);
 	}
 
 	public static int write(int fd, byte[] buffer)
 	{
-
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.WRITE, fd, buffer);
 	}
 
 	public static int seek(int fd, int offset, int whence)
