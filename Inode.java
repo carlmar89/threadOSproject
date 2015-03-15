@@ -17,12 +17,17 @@ public class Inode
 		length = 0;
 		count = 0;
 		flag = 1;
-		for ( int i = 0; i < directSize; i++ )
-		direct[i] = -1;
+		for (int i = 0; i < directSize; i++)
+			direct[i] = -1;
 		indirect = -1;
 	}
-	Inode( short iNumber ) {                       // retrieving inode from disk
-	  // design it by yourself.
+	Inode(short iNumber)
+	{
+		// retrieving inode from disk
+		// design it by yourself.
+
+	}
+
 	}
 
 	int toDisk( short iNumber ) {                  // save to disk as the i-th inode

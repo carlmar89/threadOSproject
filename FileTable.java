@@ -20,6 +20,45 @@ public class FileTable
 	// increment this inode's count
 	// immediately write back this inode to the disk
 	// return a reference to this file (structure) table entry
+		short iNumber = -1;
+		Inode inode = null;
+
+		while(true)
+		{
+			iNumber = fnames.equals("/") ? 0 : dir.namei(frame);
+			if (iNumber >= 0)
+			{
+				inode = new Inode(iNumber);
+			}
+			if (mode.compareTo("r"))
+			{
+				if (/*inode.flag is "read"*/)
+					break;
+				else if (/*inode.flag is "write"*/)
+				{
+					try
+					{
+						wait();
+					}
+					catch (InterruptedException e) {}
+				}
+				else if (/*inde.flag is "to be deleted"*/)
+				{
+					iNumber = -1;
+					return null;
+				}
+			}
+			else if (mode.compareTo("w"))
+			{
+				//...
+			}
+		}
+
+		inode.count++;
+		inode.toDisk(iNumber);
+		FileTableEntry e = new FileTableEntry(inode, iNumber, mode);
+		table.addElement(e);
+		return e;
 	}
 
 	public synchronized boolean ffree( FileTableEntry e )
