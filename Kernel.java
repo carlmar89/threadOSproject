@@ -60,6 +60,8 @@ public class Kernel
    private final static int COND_DISK_REQ = 1; // wait condition 
    private final static int COND_DISK_FIN = 2; // wait condition
 
+   public final static int NUM_BLOCKS = 1000;
+
    // Standard input
    private static BufferedReader input
       = new BufferedReader( new InputStreamReader( System.in ) );
@@ -76,7 +78,7 @@ public class Kernel
                   scheduler.start( );
 
                   // instantiate and start a disk
-                  disk = new Disk( 1000 );
+                  disk = new Disk( NUM_BLOCKS );
                   disk.start( );
 
                   // instantiate a cache memory
@@ -87,7 +89,7 @@ public class Kernel
                   waitQueue = new SyncQueue( scheduler.getMaxThreads( ) );
 
                   // instantiate a file system;
-                  fs = new FileSystem( 1000 );
+                  fs = new FileSystem( NUM_BLOCKS );
 
                   return OK;
                case EXEC:
