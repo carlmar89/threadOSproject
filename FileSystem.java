@@ -26,26 +26,37 @@ public class FileSystem
 
 	public int format(int files)
 	{
-		Inode inode = new Inode();
-		byte[] buffer = new byte[Disk.blockSize];
-		//update superblock
-		superblock.totalInodes = files;
-		superblock.freeList = (int)Math.ceil(files / (double)(Disk.blockSize / inode.iNodeSize) + 1);
-		//create new directory
-		dir = new Directory(files);
-		//create new filetable
-		if (!filetable.fempty())
-			filetable = new FileTable(dir);
-		//insert new inodes
-		for (int i = 0; i < files; i++)
-			inode.toDisk(i);
-		//update pointers for all blocks
-		for (int i = superblock.freeList; i < superblock.totalBlocks; i++)
+		if (files <= 0)
+			return 0;
+		try
 		{
-			SysLib.rawread(i, buffer);
-			SysLib.int2bytes(i + 1, buffer, 0);
-			SysLib.rawwrite(i, buffer);
+			Inode inode = new Inode();
+			byte[] buffer = new byte[Disk.blockSize];
+			//update superblock
+			superblock.totalInodes = files;
+			superblock.freeList = (int)Math.ceil(files / (double)(Disk.blockSize / inode.iNodeSize) + 1);
+			//create new directory
+			dir = new Directory(files);
+			//create new filetable
+			if (!filetable.fempty())
+				filetable = new FileTable(dir);
+			//insert new inodes
+			for (int i = 0; i < files; i++)
+				inode.toDisk(i);
+			//update pointers for all blocks
+			for (int i = superblock.freeList; i < superblock.totalBlocks; i++)
+			{
+				SysLib.rawread(i, buffer);
+				SysLib.int2bytes(i + 1, buffer, 0);
+				SysLib.rawwrite(i, buffer);
+			}
+			return 1;
 		}
+		catch(Exception e)
+		{
+			return 0;
+		}
+
 	}
 
 	public int open(String fileName, String mode)
