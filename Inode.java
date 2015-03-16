@@ -3,10 +3,18 @@ import java.util.*;
 
 public class Inode
 {
-	public final static int iNodeSize = 32;       // fix to 32 bytes
-	public final static int directSize = 11;      // # direct pointers
-	public final static int iNodesPerBlock = Disk.blockSize / iNodeSize;
+	public final static short iNodeSize = 32;       // fix to 32 bytes
+	public final static short directSize = 11;      // # direct pointers
+	public final static short iNodesPerBlock = Disk.blockSize / iNodeSize;
+
+	public final static short NULL_PTR = -1;
 	public final static short ERROR = -1;
+
+	public final static short UNUSED = 0;
+	public final static short USED = 1;
+	public final static short READ = 2;
+	public final static short WRITE = 3;
+	public final static short DELETE = 4;
 
 	public int length;                             // file size in bytes
 	public short count;                            // # file-table entries pointing to this
@@ -18,10 +26,12 @@ public class Inode
 	{
 		length = 0;
 		count = 0;
-		flag = 1;
-		for (int i = 0; i < directSize; i++)
-			direct[i] = -1;
-		indirect = -1;
+		flag = USED;
+
+		for(int i = 0; i < directSize; i++)
+			direct[i] = NULL_PTR;
+
+		indirect = NULL_PTR;
 	}
 
 	Inode(short iNumber)
@@ -127,7 +137,7 @@ public class Inode
 	public static short getBlockNumber(short iNumber)
 	{
 		// Offset by 1 since the SuperBlock is indexed at 0.
-		short blockNumber = iNumber / iNodesPerBlock + 1;
+		short blockNumber = (short)(iNumber / iNodesPerBlock + 1);
 
 		if(blockNumber < 0 || blockNumber >= Kernel.NUM_BLOCKS)
 			return ERROR;
@@ -140,6 +150,6 @@ public class Inode
 		if(iNumber < 0)
 			return ERROR;
 
-		return iNumber % iNodesPerBlock * iNodeSize;
+		return (short)(iNumber % iNodesPerBlock * iNodeSize);
 	}
 }

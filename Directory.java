@@ -6,17 +6,17 @@ public class Directory
 	private static int maxChars = 30; // max characters of each file name
 
 	// Directory entries
-	private int fsize[];        // each element stores a different file size.
+	private int fsizes[];        // each element stores a different file size.
 	private char fnames[][];    // each element stores a different file name.
 
 	public Directory(int maxInumber)
 	{
 		fsizes = new int[maxInumber];     // maxInumber = max files
 		for ( int i = 0; i < maxInumber; i++ ) 
-			fsize[i] = 0;                 // all file size initialized to 0
+			fsizes[i] = 0;                 // all file size initialized to 0
 		fnames = new char[maxInumber][maxChars];
 		String root = "/";                // entry(inode) 0 is "/"
-		fsize[0] = root.length( );        // fsize[0] is the size of "/".
+		fsizes[0] = root.length( );        // fsizes[0] is the size of "/".
 		root.getChars( 0, fsizes[0], fnames[0], 0 ); // fnames[0] includes "/"
 	}
 
@@ -91,7 +91,7 @@ public class Directory
 
 		if(filename != null && !filename.isEmpty())
 		{
-			for(int i = 0; i < fsizes.length; i++)
+			for(short i = 0; i < fsizes.length; i++)
 			{
 				if(fsizes[i] == 0)
 				{
@@ -113,7 +113,7 @@ public class Directory
 
 		if(iNumber >= 0 && iNumber < fsizes.length)
 		{
-			fsize[iNumber] = 0;
+			fsizes[iNumber] = 0;
 			fnames[iNumber] = new char[maxChars];
 
 			return true;
@@ -128,7 +128,7 @@ public class Directory
 
 		String currentFilename = null;
 
-		for(int i = 0; i < fsizes.length; i++)
+		for(short i = 0; i < fsizes.length; i++)
 		{
 			currentFilename = new String(fnames[i], 0, fsizes[i]);
 

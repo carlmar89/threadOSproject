@@ -3,73 +3,120 @@ import java.util.*;
 
 public class FileTable
 {
-	private Vector table;		// the actual entity of this file table
+	private Vector<FileTableEntry> table;		// the actual entity of this file table
 	private Directory dir;		// the root directory 
 
-	public FileTable( Directory directory )
+	public FileTable(Directory directory)
 	{
-		table = new Vector( );     // instantiate a file (structure) table
+		table = new Vector<FileTableEntry>();     // instantiate a file (structure) table
 		dir = directory;           // receive a reference to the Director
 	}                             // from the file system
 
 	// major public methods
-	public synchronized FileTableEntry falloc( String filename, String mode )
+	public synchronized FileTableEntry falloc(String filename, String mode)
 	{
-	// allocate a new file (structure) table entry for this file name
-	// allocate/retrieve and register the corresponding inode using dir
-	// increment this inode's count
-	// immediately write back this inode to the disk
-	// return a reference to this file (structure) table entry
+		// allocate a new file (structure) table entry for this file name
+		// allocate/retrieve and register the corresponding inode using dir
+		// increment this inode's count
+		// immediately write back this inode to the disk
+		// return a reference to this file (structure) table entry
+
 		short iNumber = -1;
 		Inode inode = null;
 
 		while(true)
 		{
-			iNumber = fnames.equals("/") ? 0 : dir.namei(frame);
-			if (iNumber >= 0)
+			iNumber = filename.equals("/") ? 0 : dir.namei(filename);
+
+			if(iNumber >= 0)
 			{
 				inode = new Inode(iNumber);
-			}
-			if (mode.compareTo("r"))
-			{
-				if (/*inode.flag is "read"*/)
-					break;
-				else if (/*inode.flag is "write"*/)
+
+				if(mode.equals("r"))
 				{
-					try
+					if(inode.flag == Inode.UNUSED || 
+						inode.flag == Inode.READ)
 					{
-						wait();
+						inode.flag = Inode.READ;
+
+						// No need to wait.
+						break;
 					}
-					catch (InterruptedException e) {}
+					else if(inode.flag == Inode.WRITE)
+					{
+						try
+						{
+							// File is currently being written to, so we need
+							// to wait to be notified when the writing is done.
+							wait();
+						}
+						catch (InterruptedException e) {}
+					}
+					else if(inode.flag == Inode.DELETE)
+					{
+						// Can't read a file that's currently being deleted.
+						return null;
+					}
 				}
-				else if (/*inde.flag is "to be deleted"*/)
+				else if(mode.equals("w") || 
+					mode.equals("w+") || 
+					mode.equals("a"))
 				{
-					iNumber = -1;
+					if(inode.flag == Inode.UNUSED)
+					{
+						inode.flag = Inode.WRITE;
+
+						break;
+					}
+					else if(inode.flag == Inode.READ || 
+						inode.flag == Inode.WRITE)
+					{
+						try
+						{
+							// File is currently being read or written to, so
+							// we need to wait to be notified when the reading
+							// or writing is done.
+							wait();
+						}
+						catch(Exception e) {}
+					}
+					else if(inode.flag == Inode.DELETE)
+					{
+						// Can't write if the file is currently being deleted.
+						return null;
+					}
+				}
+				else
+				{
+					// Mode not supported.
 					return null;
 				}
-			}
-			else if (mode.compareTo("w"))
-			{
-				//...
 			}
 		}
 
 		inode.count++;
 		inode.toDisk(iNumber);
-		FileTableEntry e = new FileTableEntry(inode, iNumber, mode);
-		table.addElement(e);
-		return e;
+
+		FileTableEntry entry = new FileTableEntry(inode, iNumber, mode);
+		table.addElement(entry);
+
+		return entry;
 	}
 
-	public synchronized boolean ffree( FileTableEntry e )
+	public synchronized boolean ffree(FileTableEntry entry)
 	{
-	// receive a file table entry reference
-	// save the corresponding inode to the disk
-	// free this file table entry.
-	// return true if this file table entry found in my table
+		// receive a file table entry reference
+		// save the corresponding inode to the disk
+		// free this file table entry.
+		// return true if this file table entry found in my table
+
+		if(entry == null)
+			return false;
+
+		
 	}
 
-	public synchronized boolean fempty( )
+	public synchronized boolean fempty()
 	{
 		return table.isEmpty( );  // return if table is empty 
 	}                            // should be called before starting a format

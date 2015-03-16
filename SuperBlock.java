@@ -4,6 +4,7 @@ import java.util.*;
 public class SuperBlock
 {
 	public final static int DEFAULT_INODE_BLOCKS = 64;
+	public final static short NULL_PTR = -1;
 
 	public int totalBlocks; // the number of disk blocks
 	public int totalInodes; // the number of inodes
@@ -35,15 +36,15 @@ public class SuperBlock
 		}
 	}
 
-	public sync()
+	public void sync()
 	{
 		byte[] buffer = new byte[Disk.blockSize];
 
 		// Write the totalBlocks, totalInodes, and freeList.
-		SysLib.short2int(totalBlocks, buffer, 0);
-		SysLib.short2int(totalInodes, buffer, 4);
-		SysLib.short2int(freeList, buffer, 8);
-		SysLib.short2int(lastFreeBlock, buffer, 12);
+		SysLib.int2bytes(totalBlocks, buffer, 0);
+		SysLib.int2bytes(totalInodes, buffer, 4);
+		SysLib.int2bytes(freeList, buffer, 8);
+		SysLib.int2bytes(lastFreeBlock, buffer, 12);
 
 		// Write the block back to disk.
 		SysLib.rawwrite(0, buffer);
@@ -54,7 +55,7 @@ public class SuperBlock
 		// Store the current free block temporarily.
 		int currentFreeBlock = freeList;
 
-		if(currentFreeBlock != -1)
+		if(currentFreeBlock != NULL_PTR)
 		{
 			byte[] buffer = new byte[Disk.blockSize];
 
@@ -64,11 +65,11 @@ public class SuperBlock
 			// Update the pointer to the next free block.
 			freeList = SysLib.bytes2short(buffer, 0);
 
-			if(freeList == -1)
-				lastFreeBlock = -1;
+			if(freeList == NULL_PTR)
+				lastFreeBlock = NULL_PTR;
 
 			// Update the current free block's pointer.
-			SysLib.short2bytes(-1, buffer, 0);
+			SysLib.short2bytes(NULL_PTR, buffer, 0);
 
 			// Write the current free block back to the disk.
 			SysLib.rawwrite(currentFreeBlock, buffer);
@@ -102,7 +103,7 @@ public class SuperBlock
 			SysLib.rawread(lastFreeBlock, buffer);
 
 			// Update the new last free block's pointer.
-			SysLib.short2bytes(-1, buffer, 0);
+			SysLib.short2bytes(NULL_PTR, buffer, 0);
 
 			// Write the new last free block back to disk.
 			SysLib.rawwrite(lastFreeBlock, buffer);

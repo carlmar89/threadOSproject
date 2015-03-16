@@ -10,7 +10,7 @@ public class FileSystem
 
 	public FileSystem(int diskBlocks)
 	{
-		superblock = new Superblock(diskBlocks);
+		superblock = new SuperBlock(diskBlocks);
 		dir = new Directory(superblock.totalInodes);
 		filetable = new FileTable(dir);
 
