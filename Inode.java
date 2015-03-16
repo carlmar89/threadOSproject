@@ -3,17 +3,16 @@ import java.util.*;
 
 public class Inode
 {
-	private final static int iNodeSize = 32;       // fix to 32 bytes
-	private final static int directSize = 11;      // # direct pointers
-	private final static int iNodesPerBlock = Disk.blockSize / iNodeSize;
+	public final static int iNodeSize = 32;       // fix to 32 bytes
+	public final static int directSize = 11;      // # direct pointers
+	public final static int iNodesPerBlock = Disk.blockSize / iNodeSize;
+	public final static short ERROR = -1;
 
 	public int length;                             // file size in bytes
 	public short count;                            // # file-table entries pointing to this
 	public short flag;                             // 0 = unused, 1 = used, ...
 	public short direct[] = new short[directSize]; // direct pointers
 	public short indirect;                         // a indirect pointer
-
-	public final static short ERROR = -1;
 
 	Inode()
 	{

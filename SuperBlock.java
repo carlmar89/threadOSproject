@@ -1,14 +1,15 @@
 import java.lang.Exception;
 import java.util.*;
 
-public class Superblock
+public class SuperBlock
 {
-	private final static int DEFAULT_INODE_BLOCKS = 64;
+	public final static int DEFAULT_INODE_BLOCKS = 64;
+
 	public int totalBlocks; // the number of disk blocks
 	public int totalInodes; // the number of inodes
 	public int freeList;    // the block number of the free list's head
 
-	public Superblock(int diskSize)
+	public SuperBlock(int diskSize)
 	{
 		byte[] superBlock = new byte[Disk.blockSize];
 		SysLib.rawread(0, superBlock);
@@ -24,20 +25,23 @@ public class Superblock
 		else
 		{
 			totalBlock = diskSize;
-			format(DEFAULT_INODE_BLOCKS);
+
+			SysLib.format(DEFAULT_INODE_BLOCKS);
 		}
 	}
+
 	public sync()
 	{
-		//write back totalBlocksm inodeBlock and free List to disk
+
 	}
+
 	public getFreeBlock()
 	{
 		//dequeue the top block from the free list
 	}
+
 	public returnBlock(int blockNumber)
 	{
 		//enqueue a given block to the end of the free list
 	}
-
 }
