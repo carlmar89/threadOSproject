@@ -20,8 +20,37 @@ public class FileSystem
 		{
 			byte[] dirData = new byte[dirSize];
 			read(dirEnt, dirData);
-			directory.bytse2directory(dirData);
+			directory.bytes2directory(dirData);
 		}
+	}
+
+	public int format(int files)
+	{
+		Inode inode = new Inode();
+		byte[] buffer = new byte[Disk.blockSize];
+		//update superblock
+		superblock.totalInodes = files;
+		superblock.freeList = (int)Math.ceil(files / (double)(Disk.blockSize / inode.iNodeSize) + 1);
+		//create new directory
+		dir = new Directory(files);
+		//create new filetable
+		if (!filetable.fempty())
+			filetable = new FileTable(dir);
+		//insert new inodes
+		for (int i = 0; i < files; i++)
+			inode.toDisk(i);
+		//update pointers for all blocks
+		for (int i = superblock.freeList; i < superblock.totalBlocks; i++)
+		{
+			SysLib.rawread(i, buffer);
+			SysLib.int2bytes(i + 1, buffer, 0);
+			SysLib.rawwrite(i, buffer);
+		}
+	}
+
+	public int open(String fileName, String mode)
+	{
+
 	}
 
 	public int read(int fd, byte buffer[])
