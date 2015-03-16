@@ -41,7 +41,7 @@ public class SysLib {
 		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.DELETE, 0, fileName);
 	}
 
-	public static int fsize(inf fd)
+	public static int fsize(int fd)
 	{
 		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.SIZE, fd, null);
 	}
