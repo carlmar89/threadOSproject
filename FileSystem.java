@@ -35,23 +35,28 @@ public class FileSystem
 			//update superblock
 			superblock.totalInodes = files;
 			superblock.freeList = (int)Math.ceil(files / (double)(Disk.blockSize / inode.iNodeSize) + 1);
+			//write superblock to disk
+			SysLib.int2bytes(superblock.totalBlocks, 0);
+			SysLib.int2bytes(superblock.totalInodes, 4);
+			SysLib.int2bytes(superblock.freeList, 8);
+			SysLib.rawwrite(0, buffer);
 			//create new directory
 			dir = new Directory(files);
 			//create new filetable
 			if (!filetable.fempty())
 				filetable = new FileTable(dir);
 			//insert new inodes
-			for (int i = 0; i < files; i++)
+			for (short i = 0; i < files; i++)
 				inode.toDisk(i);
 			//update pointers for all blocks
-			for (int i = superblock.freeList; i < superblock.totalBlocks - 1; i++)
+			for (short i = superblock.freeList; i < superblock.totalBlocks - 1; i++)
 			{
 				SysLib.rawread(i, buffer);
-				SysLib.int2bytes(i + 1, buffer, 0);
+				SysLib.short2bytes(i + 1, buffer, 0);
 				SysLib.rawwrite(i, buffer);
 			}
 			SysLib.rawread(superblock.totalBlocks - 1, buffer);
-			SysLib.int2bytes(-1, buffer, 0);
+			SysLib.short2bytes(-1, buffer, 0);
 			SysLib.rawwrite(superblock.totalBlocks - 1, buffer);
 			return 1;
 		}
