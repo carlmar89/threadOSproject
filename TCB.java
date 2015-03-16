@@ -1,4 +1,6 @@
 public class TCB {
+	public final static int FILE_TABLE_ENTRIES = 32;
+
     private Thread thread = null;
     private int tid = 0;
     private int pid = 0;
@@ -12,7 +14,10 @@ public class TCB {
 	pid = parentTid;
 	terminated = false;
 
-	ftEnt = new FileTableEntry[32];    // added for the file system
+	ftEnt = new FileTableEntry[FILE_TABLE_ENTRIES];    // added for the file system
+
+	for(int i = 0; i < FILE_TABLE_ENTRIES; i++)
+		ftEnt[i] = null;
 
 	System.err.println( "threadOS: a new thread (thread=" + thread + 
 			    " tid=" + tid + 
