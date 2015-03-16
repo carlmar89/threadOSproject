@@ -44,12 +44,15 @@ public class FileSystem
 			for (int i = 0; i < files; i++)
 				inode.toDisk(i);
 			//update pointers for all blocks
-			for (int i = superblock.freeList; i < superblock.totalBlocks; i++)
+			for (int i = superblock.freeList; i < superblock.totalBlocks - 1; i++)
 			{
 				SysLib.rawread(i, buffer);
 				SysLib.int2bytes(i + 1, buffer, 0);
 				SysLib.rawwrite(i, buffer);
 			}
+			SysLib.rawread(superblock.totalBlocks - 1, buffer);
+			SysLib.int2bytes(-1, buffer, 0);
+			SysLib.rawwrite(superblock.totalBlocks - 1, buffer);
 			return 1;
 		}
 		catch(Exception e)
