@@ -73,12 +73,56 @@ public class FileSystem
 		return filetable.falloc(fileName, mode);
 	}
 
-	public int read(int fd, byte buffer[])
+	public int read(FileTableEntry ftEnt, byte[] buffer)
 	{
+		if (ftEnt.mode.equals("w") || ftEnt.mode.equals("a"))
+			return -1;
 
+		int totalBytes, block, offset;
+		byte[] temp = new byte[Disk.blockSize];
+
+		//number of bytes to read into buffer
+		totalBytes = Math.min(ftEnt.inode.length - ftEnt.seekPtr, buffer.length);
+		//get relative block number
+		block = ftEnt.seekPtr / Disk.blockSize;
+		//get actual block number
+		if (block < Inode.directSize)
+		{
+			block = (int)inode.direct[block];
+		}
+		else
+		{
+			//get block number from indirect pointer
+			offset = (block - Inode.directSize) * 2;
+			SysLib.rawread((int)inode.indirect, temp);
+			block = (int)SysLib.byte2short(temp, offset);
+		}
+		int index = 0;
+		int bytesLeft = totalBytes;
+		int currentBytes = 0;
+		//read file into buffer
+		while(bytesLeft > 0)
+		{
+			temp = SysLib.rawread(block, temp);
+			currentBytes = Math.min(bytesLeft, Disk.blockSize - (ftEnt.seekPtr % Disk.blockSize);
+			//read current block of data into buffer
+			for (int i = ftEnt.seekPtr % Disk.blockSize; i < currentBytes; i++)
+			{
+				buffer[index++] = temp[i];
+			}
+			ftEnt.seekPtr = ftEnt.seekPtr + currentBytes;
+			bytesLeft = bytesLeft - currentBytes;
+			//goto next block if more bytes to read
+			if(bytesLeft > 0)
+			{
+				block = (int)SysLib.byte2short(temp, 0);
+				ftEnt.seekPtr = ftEnt.seekPtr + 2;	//skip over pointer
+			}
+		}
+		return totalBytes;
 	}
 
-	public int write(int fd, byte buffer[])
+	public int write(int fd, byte[] buffer)
 	{
 
 	}
