@@ -115,6 +115,7 @@ public class FileTable
 		inode.toDisk(iNumber);
 
 		FileTableEntry entry = new FileTableEntry(inode, iNumber, mode);
+
 		table.addElement(entry);
 
 		return entry;
@@ -130,7 +131,34 @@ public class FileTable
 		if(entry == null)
 			return false;
 
+		if(table.contains(entry))
+		{
+			// Remove a thread from the entry table.
+			entry.count--;
 
+			// If the entry table no longer has any threads associated with it,
+			// then we need to decrease the inode count as well.
+			if(entry.count == 0)
+			{
+				// If the file table entry is no longer being used by any thread,
+				// then we should decrease the amount of entries associated with
+				// the Inode.
+				inode.count--;
+
+				if(inode.count == 0)
+					inode.flag = Inode.UNUSED;
+
+				inode.toDisk(entry.iNumber);
+
+				table.remove(entry);
+			}
+
+			notifyAll();
+
+			return true;
+		}
+
+		return false;
 	}
 
 	public synchronized boolean fempty()
