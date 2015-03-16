@@ -27,10 +27,10 @@ public class FileSystem
 		}
 	}
 
-	public int format(int files)
+	public synchronized boolean format(int files)
 	{
 		if (files <= 0)
-			return 0;
+			return false;
 		try
 		{
 			Inode inode = new Inode();
@@ -40,11 +40,7 @@ public class FileSystem
 			superblock.freeList = (int)Math.ceil(files / (double)(Disk.blockSize / inode.iNodeSize) + 1);
 			superblock.lastFreeBlock = superblock.totalBlocks - 1;
 			//write superblock to disk
-			SysLib.int2bytes(superblock.totalBlocks, 0);
-			SysLib.int2bytes(superblock.totalInodes, 4);
-			SysLib.int2bytes(superblock.freeList, 8);
-			SysLib.int2bytes(superblock.lastFreeBlock, 12);
-			SysLib.rawwrite(0, buffer);
+			superblock.sync();
 			//create new directory
 			dir = new Directory(files);
 			//create new filetable
@@ -63,11 +59,11 @@ public class FileSystem
 			SysLib.rawread(superblock.totalBlocks - 1, buffer);
 			SysLib.short2bytes(-1, buffer, 0);
 			SysLib.rawwrite(superblock.totalBlocks - 1, buffer);
-			return 0;
+			return true;
 		}
 		catch(Exception e)
 		{
-			return -1;
+			return false;
 		}
 	}
 
@@ -76,7 +72,7 @@ public class FileSystem
 		return filetable.falloc(fileName, mode);
 	}
 
-	public int read(FileTableEntry ftEnt, byte[] buffer)
+	public synchronized int read(FileTableEntry ftEnt, byte[] buffer)
 	{
 		try
 		{
@@ -119,8 +115,8 @@ public class FileSystem
 		}
 
 	}
-
-	public int write(FileTableEntry ftEnt, byte[] buffer)
+	//need to update inode pointers when adding new blocks
+	public synchronized int write(FileTableEntry ftEnt, byte[] buffer)
 	{
 		try
 		{
@@ -134,6 +130,7 @@ public class FileSystem
 			//number of bytes to read into buffer
 			int totalBytes = buffer.length;
 			int bytesLeft = totalBytes;
+			int extraBytes = totalBytes + ftEnt.seekPtr - ftEnt.inode.length;
 			//get block where seekPtr is
 			int block = getEntBlock(ftEnt);
 			int nextBlock = -1;
@@ -163,6 +160,7 @@ public class FileSystem
 						{
 							//no free blocks
 							totalBytes -= bytesLeft;
+							extraBytes -= bytesLeft;
 							bytesLeft = 0;
 						}
 						else
@@ -175,9 +173,19 @@ public class FileSystem
 					else
 						ftEnt.seekPtr += 2;	//skip over pointer
 				}
+				else
+				{
+					SysLib.short2bytes(SuperBlock.NULL_PTR, temp, 0)	//set final file block pointer to null
+				}
 				SysLib.rawwrite(block, temp);
 				block = nextBlock;
-			}	
+			}
+			if (extraBytes < 0)
+			{
+				ftEnt.inode.length += extraBytes;
+				ftEnt.inode.toDisk(ftEnt.iNumber);
+			}
+			return totalBytes;
 		}
 		catch (Exception e)
 		{
@@ -185,7 +193,7 @@ public class FileSystem
 		}
 	}
 
-	public int seek(FileTableEntry ftEnt, int offset, int whence)
+	public synchronized int seek(FileTableEntry ftEnt, int offset, int whence)
 	{
 		try
 		{
@@ -200,6 +208,8 @@ public class FileSystem
 				case SEEK_END:
 					ftEnt.seekPtr = ftEnt.inode.length + offset;
 					break;
+				default:
+					return -1;
 			}
 			if (ftEnt.seekPtr > ftEnt.inode.length)
 			{
@@ -215,16 +225,67 @@ public class FileSystem
 		{
 			return -1;
 		}
-
 	}
 
-	public int close(int fd)
+	public boolean close(FileTableEntry ftEnt)
 	{
-
+		return filetable.ffree(ftEnt);
 	}
 
-	public int delete(String fileName)
+	public synchronized boolean delete(String fileName)
 	{
+		try
+		{
+			short iNumber = dir.namei(String filename);
+			if (!dir.ifree(iNumber))
+				return false;
+			Inode inode = new Inode(iNumber);
+			byte[] temp = new byte[Disk.blockSize];
+			SysLib.rawread(superblock.lastFreeBlock, temp);
+			SysLib.short2bytes(inode.direct[0], temp, 0);
+			SysLib.rawwrite(superblock.lastFreeBlock, temp)
+			short lastBlock = -1;
+			if (inode.indirect != Inode.NULL_PTR)
+			{
+				SysLib.rawread(inode.indirect, temp);
+				for(int i = 0; i < Disk.blockSize; i + 2)
+				{
+					if (SysLib.bytes2short(temp, i) == Inode.NULL_PTR)
+					{
+						lastBlock = SysLib.bytes2short(temp, i - 2);
+						break;
+					}
+				}
+			}
+			else
+			{
+				for (int i = 0; i < Inode.directSize; i++)
+				{
+					if (inode.direct[i] == Inode.NULL_PTR)
+					{
+						lastBlock = (short)(i - 1);
+						break;
+					}
+					else
+					{
+						inode.direct[i] = Inode.NULL_PTR
+					}
+				}
+			}
+			superblock.lastFreeBlock = lastBlock;
+			superblock.sync();
+			superblock.returnBlock(inode.indirect);
+			inode.length = 0;
+			inode.count = 0;
+			inode.indirect = 0;
+			inode.flag = 0;
+			inode.toDisk(iNumber);
+			return true;
+		}
+		catch(Exception e)
+		{
+			return false;
+		}
 
 	}
 
