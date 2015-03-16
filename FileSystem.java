@@ -187,26 +187,35 @@ public class FileSystem
 
 	public int seek(FileTableEntry ftEnt, int offset, int whence)
 	{
-		switch(whence)
+		try
 		{
-			case SEEK_SET:
-				ftEnt.seekPtr = offset;
-				break;
-			case SEEK_CUR:
-				ftEnt.seekPtr += offset;
-				break;
-			case SEEK_END:
-				ftEnt.seekPtr = ftEnt.inode.length + offset;
-				break;
+			switch(whence)
+			{
+				case SEEK_SET:
+					ftEnt.seekPtr = offset;
+					break;
+				case SEEK_CUR:
+					ftEnt.seekPtr += offset;
+					break;
+				case SEEK_END:
+					ftEnt.seekPtr = ftEnt.inode.length + offset;
+					break;
+			}
+			if (ftEnt.seekPtr > ftEnt.inode.length)
+			{
+				ftEnt.seekPtr = ftEnt.inode.length;
+			}
+			else if (ftEnt.seekPtr < 0)
+			{
+				ftEnt.seekPtr = 0;
+			}
+			return 0;
 		}
-		if (ftEnt.seekPtr > ftEnt.inode.length)
+		catch(Exception e)
 		{
-			ftEnt.seekPtr = ftEnt.inode.length;
+			return -1;
 		}
-		else if (ftEnt.seekPtr < 0)
-		{
-			ftEnt.seekPtr = 0;
-		}
+
 	}
 
 	public int close(int fd)
