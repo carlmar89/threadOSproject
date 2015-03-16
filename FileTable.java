@@ -143,12 +143,12 @@ public class FileTable
 				// If the file table entry is no longer being used by any thread,
 				// then we should decrease the amount of entries associated with
 				// the Inode.
-				inode.count--;
+				entry.inode.count--;
 
-				if(inode.count == 0)
-					inode.flag = Inode.UNUSED;
+				if(entry.inode.count == 0)
+					entry.inode.flag = Inode.UNUSED;
 
-				inode.toDisk(entry.iNumber);
+				entry.inode.toDisk(entry.iNumber);
 
 				table.remove(entry);
 			}
