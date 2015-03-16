@@ -7,6 +7,9 @@ public class FileSystem
 	private Directory dir;
 	private FileTable filetable;
 
+	private final static int SEEK_SET = 0;
+	private final static int SEEK_CUR = 1;
+	private final static int SEEK_END = 2;
 
 	public FileSystem(int diskBlocks)
 	{
@@ -180,13 +183,30 @@ public class FileSystem
 		{
 			return -1;
 		}
-
-
 	}
 
-	public int seek(int fd, int offset, int whence)
+	public int seek(FileTableEntry ftEnt, int offset, int whence)
 	{
-
+		switch(whence)
+		{
+			case SEEK_SET:
+				ftEnt.seekPtr = offset;
+				break;
+			case SEEK_CUR:
+				ftEnt.seekPtr += offset;
+				break;
+			case SEEK_END:
+				ftEnt.seekPtr = ftEnt.inode.length + offset;
+				break;
+		}
+		if (ftEnt.seekPtr > ftEnt.inode.length)
+		{
+			ftEnt.seekPtr = ftEnt.inode.length;
+		}
+		else if (ftEnt.seekPtr < 0)
+		{
+			ftEnt.seekPtr = 0;
+		}
 	}
 
 	public int close(int fd)
