@@ -35,10 +35,12 @@ public class FileSystem
 			//update superblock
 			superblock.totalInodes = files;
 			superblock.freeList = (int)Math.ceil(files / (double)(Disk.blockSize / inode.iNodeSize) + 1);
+			superblock.lastFreeBlock = superblock.totalBlocks - 1;
 			//write superblock to disk
 			SysLib.int2bytes(superblock.totalBlocks, 0);
 			SysLib.int2bytes(superblock.totalInodes, 4);
 			SysLib.int2bytes(superblock.freeList, 8);
+			SysLib.int2bytes(superblock.lastFreeBlock, 12);
 			SysLib.rawwrite(0, buffer);
 			//create new directory
 			dir = new Directory(files);
@@ -64,12 +66,11 @@ public class FileSystem
 		{
 			return 0;
 		}
-
 	}
 
 	public int open(String fileName, String mode)
 	{
-
+		return filetable.falloc(fileName, mode);
 	}
 
 	public int read(int fd, byte buffer[])
