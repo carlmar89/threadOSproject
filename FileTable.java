@@ -92,6 +92,23 @@ public class FileTable
 					return null;
 				}
 			}
+			else
+			{
+				if(mode.equals("r"))
+				{
+					// Can't read a file that doesn't exist.
+					return null;
+				}
+
+				inode = new Inode();
+				iNumber = dir.ialloc(filename);
+
+				if(iNumber == -1)
+				{
+					// Can't create anymore files.
+					return null;
+				}
+			}
 		}
 
 		inode.count++;
@@ -113,7 +130,7 @@ public class FileTable
 		if(entry == null)
 			return false;
 
-		
+
 	}
 
 	public synchronized boolean fempty()
