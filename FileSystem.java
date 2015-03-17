@@ -74,7 +74,7 @@ public class FileSystem
 	{
 		try
 		{
-			if (ftEnt.mode.equals("w") || ftEnt.mode.equals("a"))
+			if (ftEnt.mode.equals("w") || ftEnt.mode.equals("a") || ftEnt.inode.length == 0 || buffer.length == 0)
 				return -1;
 
 			byte[] temp = new byte[Disk.blockSize];
@@ -117,7 +117,7 @@ public class FileSystem
 	{
 		try
 		{
-			if (ftEnt.mode.equals("r"))
+			if (ftEnt.mode.equals("r") || buffer.length == 0)
 				return -1;
 			else if (ftEnt.mode.equals("a"))
 				ftEnt.seekPtr = ftEnt.inode.length;
@@ -149,7 +149,6 @@ public class FileSystem
 				else
 					SysLib.rawread(ftEnt.inode.indirect, indirectBlock);
 			}
-			//seekPtr actual block
 			int block = getEntBlock(ftEnt);
 			int nextBlock = -1;
 			int index = 0;
@@ -342,11 +341,18 @@ public class FileSystem
 		//get actual block number
 		if (block < Inode.directSize)
 		{
+			if (block == 0)
+			{
+				if (ftEnt.inode.direct[block] == Inode.NULL_PTR)
+				{
+					ftEnt.inode.direct[block] = (short)superblock.getFreeBlock();
+				}
+			}
 			return (int)ftEnt.inode.direct[block];
 		}
 
 		byte[] temp = new byte[Disk.blockSize];
 		SysLib.rawread((int)ftEnt.inode.indirect, temp);
-		return block = (int)SysLib.bytes2short(temp, (block - Inode.directSize) * 2);
+		return (int)SysLib.bytes2short(temp, (block - Inode.directSize) * 2);
 	}
 }
