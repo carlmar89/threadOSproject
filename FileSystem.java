@@ -77,6 +77,11 @@ public class FileSystem
 
 		byte[] temp = new byte[Disk.blockSize];
 
+		if (ftEnt.seekPtr < 2)
+		{
+			ftEnt.seekPtr = 2;
+		}
+
 		//number of bytes to read into buffer
 		int totalBytes = Math.min(ftEnt.inode.length - ftEnt.seekPtr, buffer.length);
 		int bytesLeft = totalBytes;
@@ -88,6 +93,10 @@ public class FileSystem
 		//read file into buffer
 		while(bytesLeft > 0)
 		{
+			if (block < 0)
+			{
+				return -1;
+			}
 			SysLib.rawread(block, temp);
 			currentBytes = Math.min(bytesLeft, Disk.blockSize - (ftEnt.seekPtr % Disk.blockSize));
 			//read current block of data into buffer
