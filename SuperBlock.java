@@ -25,6 +25,7 @@ public class SuperBlock
 		// The freeList has to be 2 or greater since the first block (index 0)
 		// is the SuperBlock, and the the second block (index 1) contains
 		// information about Inodes.
+		/*
 		if(totalBlocks != Kernel.NUM_BLOCKS || totalInodes <= 0 || 
 			freeList < 2 || freeList >= totalBlocks && 
 			lastFreeBlock < 2 || lastFreeBlock >= totalBlocks)
@@ -34,6 +35,20 @@ public class SuperBlock
 
 			SysLib.format(DEFAULT_INODE_BLOCKS);
 		}
+		*/
+	}
+
+	public boolean formatCheck()
+	{
+		if (totalBlocks != Kernel.NUM_BLOCKS || totalInodes <= 0 || 
+			freeList < 2 || freeList >= totalBlocks && 
+			lastFreeBlock < 2 || lastFreeBlock >= totalBlocks)
+		{
+			totalBlocks = Kernel.NUM_BLOCKS;
+			lastFreeBlock = totalBlocks - 1;
+			return true;
+		}
+		return false;
 	}
 
 	public void sync()

@@ -3,9 +3,9 @@ import java.util.*;
 
 public class FileSystem
 {
-	private SuperBlock superblock;
-	private Directory dir;
-	private FileTable filetable;
+	private SuperBlock superblock = null;
+	private Directory dir = null;
+	private FileTable filetable = null;
 
 	private final static int SEEK_SET = 0;
 	private final static int SEEK_CUR = 1;
@@ -14,57 +14,55 @@ public class FileSystem
 	public FileSystem(int diskBlocks)
 	{
 		superblock = new SuperBlock();
-		dir = new Directory(superblock.totalInodes);
-		filetable = new FileTable(dir);
-
-		FileTableEntry dirEnt = filetable.falloc("/", "r");
-		int dirSize = fsize(dirEnt);
-		if (dirSize > 0 )
+		if (superblock.formatCheck())
+			format(SuperBlock.DEFAULT_INODE_BLOCKS);
+		else
 		{
-			byte[] dirData = new byte[dirSize];
-			read(dirEnt, dirData);
-			dir.bytes2directory(dirData);
+			dir = new Directory(superblock.totalInodes);
+			filetable = new FileTable(dir);
+			FileTableEntry dirEnt = filetable.falloc("/", "r");
+			int dirSize = fsize(dirEnt);
+			if (dirSize > 0 )
+			{
+				byte[] dirData = new byte[dirSize];
+				read(dirEnt, dirData);
+				dir.bytes2directory(dirData);
+			}			
 		}
+
 	}
 
 	public synchronized boolean format(int files)
 	{
 		if (files <= 0)
 			return false;
-		try
+		Inode inode = new Inode();
+		byte[] buffer = new byte[Disk.blockSize];
+		//update superblock
+		superblock.totalInodes = files;
+		superblock.freeList = (int)Math.ceil(files / (double)(Disk.blockSize / inode.iNodeSize) + 1);
+		superblock.lastFreeBlock = superblock.totalBlocks - 1;
+		//write superblock to disk
+		superblock.sync();
+		//create new directory
+		dir = new Directory(files);
+		//create new filetable
+		if (filetable == null || !filetable.fempty())
+			filetable = new FileTable(dir);
+		//insert new inodes
+		for (short i = 0; i < files; i++)
+			inode.toDisk(i);
+		//update pointers for all blocks
+		for (int i = superblock.freeList; i < superblock.totalBlocks - 1; i++)
 		{
-			Inode inode = new Inode();
-			byte[] buffer = new byte[Disk.blockSize];
-			//update superblock
-			superblock.totalInodes = files;
-			superblock.freeList = (int)Math.ceil(files / (double)(Disk.blockSize / inode.iNodeSize) + 1);
-			superblock.lastFreeBlock = superblock.totalBlocks - 1;
-			//write superblock to disk
-			superblock.sync();
-			//create new directory
-			dir = new Directory(files);
-			//create new filetable
-			if (!filetable.fempty())
-				filetable = new FileTable(dir);
-			//insert new inodes
-			for (short i = 0; i < files; i++)
-				inode.toDisk(i);
-			//update pointers for all blocks
-			for (int i = superblock.freeList; i < superblock.totalBlocks - 1; i++)
-			{
-				SysLib.rawread(i, buffer);
-				SysLib.short2bytes((short)(i + 1), buffer, 0);
-				SysLib.rawwrite(i, buffer);
-			}
-			SysLib.rawread(superblock.totalBlocks - 1, buffer);
-			SysLib.short2bytes(SuperBlock.NULL_PTR, buffer, 0);
-			SysLib.rawwrite(superblock.totalBlocks - 1, buffer);
-			return true;
+			SysLib.rawread(i, buffer);
+			SysLib.short2bytes((short)(i + 1), buffer, 0);
+			SysLib.rawwrite(i, buffer);
 		}
-		catch(Exception e)
-		{
-			return false;
-		}
+		SysLib.rawread(superblock.totalBlocks - 1, buffer);
+		SysLib.short2bytes(SuperBlock.NULL_PTR, buffer, 0);
+		SysLib.rawwrite(superblock.totalBlocks - 1, buffer);
+		return true;
 	}
 
 	public synchronized FileTableEntry open(String fileName, String mode)
