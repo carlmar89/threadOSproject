@@ -72,45 +72,51 @@ public class FileSystem
 
 	public synchronized int read(FileTableEntry ftEnt, byte[] buffer)
 	{
+		if (ftEnt.mode.equals("w") || ftEnt.mode.equals("a") || ftEnt.inode.length <= 2 || buffer.length == 0)
+			return -1;
+
+		byte[] temp = new byte[Disk.blockSize];
+
+		//number of bytes to read into buffer
+		int totalBytes = Math.min(ftEnt.inode.length - ftEnt.seekPtr, buffer.length);
+		int bytesLeft = totalBytes;
+		//get block where seekPtr is
+		int block = getEntBlock(ftEnt);
+		int index = 0;
+		int currentBytes = 0;
+		int bytesRead = 0;
+		//read file into buffer
+		while(bytesLeft > 0)
+		{
+			SysLib.rawread(block, temp);
+			currentBytes = Math.min(bytesLeft, Disk.blockSize - (ftEnt.seekPtr % Disk.blockSize));
+			//read current block of data into buffer
+			for (int i = 0; i < currentBytes; i++)
+			{
+				buffer[index++] = temp[i + ftEnt.seekPtr % Disk.blockSize];
+			}
+			bytesRead += currentBytes;
+			ftEnt.seekPtr += currentBytes;
+			bytesLeft -= currentBytes;
+			//goto next block if more bytes to read
+			if(bytesLeft > 0)
+			{
+				block = (int)SysLib.bytes2short(temp, 0);
+				ftEnt.seekPtr += 2;	//skip over pointer
+			}
+		}
+		return bytesRead;
+		/*
 		try
 		{
-			if (ftEnt.mode.equals("w") || ftEnt.mode.equals("a") || ftEnt.inode.length == 0 || buffer.length == 0)
-				return -1;
 
-			byte[] temp = new byte[Disk.blockSize];
-
-			//number of bytes to read into buffer
-			int totalBytes = Math.min(ftEnt.inode.length - ftEnt.seekPtr, buffer.length);
-			int bytesLeft = totalBytes;
-			//get block where seekPtr is
-			int block = getEntBlock(ftEnt);
-			int index = 0;
-			int currentBytes = 0;
-			//read file into buffer
-			while(bytesLeft > 0)
-			{
-				SysLib.rawread(block, temp);
-				currentBytes = Math.min(bytesLeft, Disk.blockSize - (ftEnt.seekPtr % Disk.blockSize));
-				//read current block of data into buffer
-				for (int i = ftEnt.seekPtr % Disk.blockSize; i < currentBytes; i++)
-				{
-					buffer[index++] = temp[i];
-				}
-				ftEnt.seekPtr += currentBytes;
-				bytesLeft -= currentBytes;
-				//goto next block if more bytes to read
-				if(bytesLeft > 0)
-				{
-					block = (int)SysLib.bytes2short(temp, 0);
-					ftEnt.seekPtr += 2;	//skip over pointer
-				}
-			}
-			return totalBytes;
 		}
 		catch(Exception e)
 		{
+			SysLib.cerr(e.toString());
 			return -1;
 		}
+		*/
 
 	}
 	public synchronized int write(FileTableEntry ftEnt, byte[] buffer)
@@ -119,16 +125,13 @@ public class FileSystem
 		{
 			if (ftEnt.mode.equals("r") || buffer.length == 0)
 				return -1;
-			else if (ftEnt.mode.equals("a"))
-				ftEnt.seekPtr = ftEnt.inode.length;
 
 			byte[] temp = new byte[Disk.blockSize];
 			byte[] indirectBlock = null;
 
 			//number of bytes to read into buffer
-			int totalBytes = buffer.length;
-			int bytesLeft = totalBytes;
-			int extraBytes = totalBytes + ftEnt.seekPtr - ftEnt.inode.length;
+			int bytesLeft = buffer.length;
+			int extraBytes = bytesLeft + ftEnt.seekPtr - ftEnt.inode.length;
 			//seekPtr relative block in file
 			int relativeBlock = ftEnt.seekPtr / Disk.blockSize;
 			//check if indirect block is needed
@@ -153,16 +156,19 @@ public class FileSystem
 			int nextBlock = -1;
 			int index = 0;
 			int currentBytes = 0;
-			//read buffer to file
+			int bytesWritten = 0;
+			int seekStart = ftEnt.seekPtr;
+			//write buffer to file
 			while(bytesLeft > 0)
 			{
 				SysLib.rawread(block, temp);
 				currentBytes = Math.min(bytesLeft, Disk.blockSize - (ftEnt.seekPtr % Disk.blockSize));
 				//write to current block
-				for (int i = ftEnt.seekPtr % Disk.blockSize; i < currentBytes; i++)
+				for (int i = 0; i < currentBytes; i++)
 				{
-					temp[i] = buffer[index++];
+					temp[i + ftEnt.seekPtr % Disk.blockSize] = buffer[index++];
 				}
+				bytesWritten += currentBytes;
 				ftEnt.seekPtr += currentBytes;
 				bytesLeft -= currentBytes;
 				//if more to write get next block
@@ -176,7 +182,6 @@ public class FileSystem
 						if (nextBlock < 0)
 						{
 							//no free blocks
-							totalBytes -= bytesLeft;
 							extraBytes -= bytesLeft;
 							bytesLeft = 0;
 						}
@@ -206,19 +211,24 @@ public class FileSystem
 				SysLib.rawwrite(block, temp);
 				block = nextBlock;
 			}
-			if (extraBytes < 0)
+
+			if (ftEnt.seekPtr % Disk.blockSize == 0)
+				ftEnt.seekPtr += 2;
+
+			if (extraBytes > 0)
 			{
-				ftEnt.inode.length += extraBytes;
+				ftEnt.inode.length += ftEnt.seekPtr - seekStart;
 				ftEnt.inode.toDisk(ftEnt.iNumber);
 				if (indirectBlock != null)
 				{
 					SysLib.rawwrite(ftEnt.inode.indirect, indirectBlock);
 				}
 			}
-			return totalBytes;
+			return bytesWritten;
 		}
 		catch (Exception e)
 		{
+			SysLib.cerr(e.toString());
 			return -1;
 		}
 	}
@@ -227,16 +237,33 @@ public class FileSystem
 	{
 		try
 		{
+			int pointers = 0;
 			switch(whence)
 			{
 				case SEEK_SET:
-					ftEnt.seekPtr = offset;
+					pointers = offset / Disk.blockSize + 1;
+					ftEnt.seekPtr = offset + pointers * 2;
 					break;
 				case SEEK_CUR:
-					ftEnt.seekPtr += offset;
+					if (offset > 0)
+					{
+						pointers = offset / Disk.blockSize;
+						pointers += (ftEnt.seekPtr % Disk.blockSize + offset % Disk.blockSize) / Disk.blockSize;
+					}
+					else if (offset < 0)
+					{
+						pointers = offset / Disk.blockSize;
+						pointers -= ((Disk.blockSize - (ftEnt.seekPtr % Disk.blockSize)) - offset % Disk.blockSize) / Disk.blockSize;
+					}
+					ftEnt.seekPtr += offset + pointers * 2;
 					break;
 				case SEEK_END:
-					ftEnt.seekPtr = ftEnt.inode.length + offset;
+					if (offset < 0)
+					{
+						pointers = offset / Disk.blockSize;
+						pointers -= ((Disk.blockSize - (ftEnt.inode.length % Disk.blockSize)) - offset % Disk.blockSize) / Disk.blockSize;
+						ftEnt.seekPtr = ftEnt.inode.length + offset + pointers * 2;
+					}
 					break;
 				default:
 					return -1;
@@ -245,11 +272,11 @@ public class FileSystem
 			{
 				ftEnt.seekPtr = ftEnt.inode.length;
 			}
-			else if (ftEnt.seekPtr < 0)
+			else if (ftEnt.seekPtr < 2)
 			{
-				ftEnt.seekPtr = 0;
+				ftEnt.seekPtr = 2;
 			}
-			return 0;
+			return ftEnt.seekPtr - 2 * (ftEnt.seekPtr / Disk.blockSize + 1);
 		}
 		catch(Exception e)
 		{
@@ -346,6 +373,9 @@ public class FileSystem
 				if (ftEnt.inode.direct[block] == Inode.NULL_PTR)
 				{
 					ftEnt.inode.direct[block] = (short)superblock.getFreeBlock();
+					ftEnt.inode.length = 2;
+					ftEnt.seekPtr = 2;
+					ftEnt.inode.toDisk(ftEnt.iNumber);
 				}
 			}
 			return (int)ftEnt.inode.direct[block];
