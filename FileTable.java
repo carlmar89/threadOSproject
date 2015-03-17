@@ -20,7 +20,6 @@ public class FileTable
 		// increment this inode's count
 		// immediately write back this inode to the disk
 		// return a reference to this file (structure) table entry
-
 		short iNumber = -1;
 		Inode inode = null;
 

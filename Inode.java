@@ -26,7 +26,7 @@ public class Inode
 	{
 		length = 0;
 		count = 0;
-		flag = USED;
+		flag = UNUSED;
 
 		for(int i = 0; i < directSize; i++)
 			direct[i] = NULL_PTR;
