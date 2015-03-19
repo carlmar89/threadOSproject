@@ -149,14 +149,15 @@ public class FileSystem
 		try
 		{
 			if (ftEnt.mode.equals("w") || ftEnt.mode.equals("a") 
-				|| ftEnt.inode.length <= 2 || buffer.length == 0)
+				|| buffer.length == 0)
 				return -1;
 
 			byte[] temp = new byte[Disk.blockSize];
+			byte[] indirectBlock = null;
 
-			if (ftEnt.seekPtr < 2)
+			if (ftEnt.inode.indirect > Inode.NULL_PTR)
 			{
-				ftEnt.seekPtr = 2;
+				SysLib.rawread(ftEnt.inode.indirect, indirectBlock);
 			}
 
 			//number of bytes to read into buffer
@@ -164,6 +165,7 @@ public class FileSystem
 										 buffer.length);
 			int bytesLeft = totalBytes;
 			//get block where seekPtr is
+			int relativeBlock = ftEnt.seekPtr / Disk.blockSize;
 			int block = getEntBlock(ftEnt);
 			int index = 0;
 			int currentBytes = 0;
@@ -189,8 +191,14 @@ public class FileSystem
 				//goto next block if more bytes to read
 				if(bytesLeft > 0)
 				{
-					block = (int)SysLib.bytes2short(temp, 0);
-					ftEnt.seekPtr += 2;	//skip over pointer
+					if (++relativeBlock < Inode.directSize)
+					{
+						block = ftEnt.inode.direct[relativeBlock];
+					}
+					else if (indirectBlock != null)
+					{
+						block = (int)SysLib.bytes2short(indirectBlock, (relativeBlock - Inode.directSize) * 2);
+					}
 				}
 			}
 			return bytesRead;
@@ -214,14 +222,20 @@ public class FileSystem
 			byte[] temp = new byte[Disk.blockSize];
 			byte[] indirectBlock = null;
 
+			//check if file has a data block
+			if (ftEnt.inode.direct[0] == -1)
+			{
+				ftEnt.inode.direct[0] = (short)superblock.getFreeBlock();
+			}
 			//number of bytes to read into buffer
 			int bytesLeft = buffer.length;
-			int extraBytes = bytesLeft + ftEnt.seekPtr - ftEnt.inode.length;
+			//bytes to append to file
+			int extraBytes = Math.max(bytesLeft + ftEnt.seekPtr - ftEnt.inode.length, 0);
 			//seekPtr relative block in file
 			int relativeBlock = ftEnt.seekPtr / Disk.blockSize;
 			//check if indirect block is needed
-			int blocksToAlloc = (extraBytes + (ftEnt.seekPtr % Disk.blockSize))
-											/ Disk.blockSize;
+			int blocksToAlloc = (extraBytes + (ftEnt.seekPtr % Disk.blockSize)) / Disk.blockSize;
+
 			if (blocksToAlloc + relativeBlock > Inode.directSize)
 			{
 				indirectBlock = new byte[Disk.blockSize];
@@ -247,6 +261,10 @@ public class FileSystem
 			//write buffer to file
 			while(bytesLeft > 0)
 			{
+				if (block < 0)
+				{
+					return -1;
+				}
 				SysLib.rawread(block, temp);
 				currentBytes = Math.min(bytesLeft, Disk.blockSize - 
 								(ftEnt.seekPtr % Disk.blockSize));
@@ -261,60 +279,35 @@ public class FileSystem
 				//if more to write get next block
 				if(bytesLeft > 0)
 				{
-					nextBlock = (int)SysLib.bytes2short(temp, 0);
-					if (nextBlock < 0)
+					if (++relativeBlock < Inode.directSize)
 					{
-						//get new block for file
-						nextBlock = superblock.getFreeBlock();
-						if (nextBlock < 0)
+						nextBlock = ftEnt.inode.direct[relativeBlock];
+						if (nextBlock == Inode.NULL_PTR)
 						{
-							//no free blocks
-							extraBytes -= bytesLeft;
-							bytesLeft = 0;
-						}
-						else
-						{
-							//update current block pointer
-							SysLib.short2bytes((short)nextBlock, temp, 0);
-							ftEnt.seekPtr += 2;	//skip over pointer
-							if (++relativeBlock < Inode.directSize)
-							{
-								ftEnt.inode.direct[relativeBlock] = 
-												(short)nextBlock;
-							}
-							else
-							{
-								if (indirectBlock != null)
-									SysLib.short2bytes((short)nextBlock, 
-									indirectBlock, (relativeBlock - 
-												Inode.directSize) * 2);
-							}
+							nextBlock = superblock.getFreeBlock();
+							ftEnt.inode.direct[relativeBlock] = (short)nextBlock;
 						}
 					}
-					else
-						ftEnt.seekPtr += 2;	//skip over pointer
-				}
-				else
-				{
-					//set final file block pointer to null
-					SysLib.short2bytes(SuperBlock.NULL_PTR, temp, 0);
+					else if (indirectBlock != null)
+					{
+						nextBlock = (int)SysLib.bytes2short(indirectBlock, (relativeBlock - Inode.directSize) * 2);
+						if (nextBlock == Inode.NULL_PTR)
+						{
+							nextBlock = superblock.getFreeBlock();
+							SysLib.short2bytes((short)nextBlock, indirectBlock, (relativeBlock - Inode.directSize) * 2);
+						}
+					}
 				}
 				SysLib.rawwrite(block, temp);
 				block = nextBlock;
 			}
 
-			if (ftEnt.seekPtr % Disk.blockSize == 0)
-				ftEnt.seekPtr += 2;
-
 			if (extraBytes > 0)
-			{
-				ftEnt.inode.length += ftEnt.seekPtr - seekStart;
-				ftEnt.inode.toDisk(ftEnt.iNumber);
-				if (indirectBlock != null)
-				{
-					SysLib.rawwrite(ftEnt.inode.indirect, indirectBlock);
-				}
-			}
+				ftEnt.inode.length = ftEnt.seekPtr;
+			if (indirectBlock != null)
+				SysLib.rawwrite(ftEnt.inode.indirect, indirectBlock);
+
+			ftEnt.inode.toDisk(ftEnt.iNumber);
 			return bytesWritten;
 		}
 		catch (Exception e)
@@ -328,41 +321,16 @@ public class FileSystem
 	{
 		try
 		{
-			int pointers = 0;
 			switch(whence)
 			{
 				case SEEK_SET:
-					pointers = offset / Disk.blockSize + 1;
-					ftEnt.seekPtr = offset + pointers * 2;
+					ftEnt.seekPtr = offset;
 					break;
 				case SEEK_CUR:
-					if (offset > 0)
-					{
-						//calculate headers
-						pointers = offset / Disk.blockSize;
-						pointers += (ftEnt.seekPtr % Disk.blockSize +
-							offset % Disk.blockSize) / Disk.blockSize;
-					}
-					else if (offset < 0)
-					{
-						//calculate headers
-						pointers = offset / Disk.blockSize;
-						pointers -= ((Disk.blockSize - 
-							(ftEnt.seekPtr % Disk.blockSize)) - 
-							offset % Disk.blockSize) / Disk.blockSize;
-					}
-					ftEnt.seekPtr += offset + pointers * 2;
+					ftEnt.seekPtr += offset;
 					break;
 				case SEEK_END:
-					if (offset < 0)
-					{
-						//calculate headers
-						pointers = offset / Disk.blockSize;
-						pointers -= ((Disk.blockSize - 
-							(ftEnt.inode.length % Disk.blockSize)) - 
-							offset % Disk.blockSize) / Disk.blockSize;
-						ftEnt.seekPtr = ftEnt.inode.length + offset + pointers * 2;
-					}
+					ftEnt.seekPtr = ftEnt.inode.length + offset;
 					break;
 				default:
 					return -1;
@@ -371,11 +339,11 @@ public class FileSystem
 			{
 				ftEnt.seekPtr = ftEnt.inode.length;
 			}
-			else if (ftEnt.seekPtr < 2)
+			else if (ftEnt.seekPtr < 0)
 			{
-				ftEnt.seekPtr = 2;
+				ftEnt.seekPtr = 0;
 			}
-			return ftEnt.seekPtr - 2 * (ftEnt.seekPtr / Disk.blockSize + 1);
+			return ftEnt.seekPtr;
 		}
 		catch(Exception e)
 		{
@@ -396,49 +364,38 @@ public class FileSystem
 			short iNumber = dir.namei(fileName);
 			if (!dir.ifree(iNumber))
 				return false;
-			Inode inode = new Inode(iNumber);
 			byte[] temp = new byte[Disk.blockSize];
-			//set last free block's pointer to beginning of file blocks
-			SysLib.rawread(superblock.lastFreeBlock, temp);
-			SysLib.short2bytes(inode.direct[0], temp, 0);
-			SysLib.rawwrite(superblock.lastFreeBlock, temp);
-			//get last block in file
-			short lastBlock = -1;
-			if (inode.indirect != Inode.NULL_PTR)
-			{
-				SysLib.rawread(inode.indirect, temp);
-				for(int i = 0; i < Disk.blockSize; i += 2)
-				{
-					if (SysLib.bytes2short(temp, i) == Inode.NULL_PTR)
-					{
-						lastBlock = SysLib.bytes2short(temp, i - 2);
-						superblock.returnBlock(inode.indirect);
-						break;
-					}
-				}
-			}
-			else
+			Inode inode = new Inode(iNumber);
+			if (inode.length > 0)
 			{
 				for (int i = 0; i < Inode.directSize; i++)
 				{
-					if (inode.direct[i] == Inode.NULL_PTR)
+					if (inode.direct[i] > Inode.NULL_PTR)
+						superblock.returnBlock(inode.direct[i]);
+					inode.direct[i] = Inode.NULL_PTR;
+				}
+				if (inode.indirect != Inode.NULL_PTR)
+				{
+					SysLib.rawread(inode.indirect, temp);
+					int offset = 0;
+					short blockNum = 0;
+					for (int i = 0; i < Disk.blockSize; i += 2)
 					{
-						lastBlock = (short)(i - 1);
-						break;
+						blockNum = SysLib.bytes2short(temp, i);
+						if (blockNum > Inode.NULL_PTR)
+						{
+							superblock.returnBlock(blockNum);
+						}
+						else
+							break;
 					}
-					else
-					{
-						inode.direct[i] = Inode.NULL_PTR;
-					}
+					superblock.returnBlock(inode.indirect);
 				}
 			}
-			//sync superblock
-			superblock.lastFreeBlock = lastBlock;
-			superblock.sync();
 			//clear out inode
 			inode.length = 0;
 			inode.count = 0;
-			inode.indirect = 0;
+			inode.indirect = Inode.NULL_PTR;
 			inode.flag = 0;
 			inode.toDisk(iNumber);
 			return true;
@@ -467,16 +424,6 @@ public class FileSystem
 		//get actual block number
 		if (block < Inode.directSize)
 		{
-			if (block == 0)
-			{
-				if (ftEnt.inode.direct[block] == Inode.NULL_PTR)
-				{
-					ftEnt.inode.direct[block] = (short)superblock.getFreeBlock();
-					ftEnt.inode.length = 2;
-					ftEnt.seekPtr = 2;
-					ftEnt.inode.toDisk(ftEnt.iNumber);
-				}
-			}
 			return (int)ftEnt.inode.direct[block];
 		}
 
