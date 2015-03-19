@@ -157,6 +157,7 @@ public class FileSystem
 
 			if (ftEnt.inode.indirect > Inode.NULL_PTR)
 			{
+				indirectBlock = new byte[Disk.blockSize];
 				SysLib.rawread(ftEnt.inode.indirect, indirectBlock);
 			}
 
@@ -257,7 +258,6 @@ public class FileSystem
 			int index = 0;
 			int currentBytes = 0;
 			int bytesWritten = 0;
-			int seekStart = ftEnt.seekPtr;
 			//write buffer to file
 			while(bytesLeft > 0)
 			{
@@ -277,7 +277,7 @@ public class FileSystem
 				ftEnt.seekPtr += currentBytes;
 				bytesLeft -= currentBytes;
 				//if more to write get next block
-				if(bytesLeft > 0)
+				if(bytesLeft > 0 || ftEnt.seekPtr % Disk.blockSize == 0)
 				{
 					if (++relativeBlock < Inode.directSize)
 					{
@@ -353,6 +353,7 @@ public class FileSystem
 
 	public synchronized boolean close(FileTableEntry ftEnt)
 	{
+		notifyAll();
 		return filetable.ffree(ftEnt);
 	}
 
@@ -362,10 +363,14 @@ public class FileSystem
 		{
 			//delete file from directory
 			short iNumber = dir.namei(fileName);
+			Inode inode = new Inode(iNumber);
+			while (inode.count > 0)
+			{
+				wait();
+			}
 			if (!dir.ifree(iNumber))
 				return false;
 			byte[] temp = new byte[Disk.blockSize];
-			Inode inode = new Inode(iNumber);
 			if (inode.length > 0)
 			{
 				for (int i = 0; i < Inode.directSize; i++)
