@@ -198,7 +198,8 @@ public class FileSystem
 					}
 					else if (indirectBlock != null)
 					{
-						block = (int)SysLib.bytes2short(indirectBlock, (relativeBlock - Inode.directSize) * 2);
+						block = (int)SysLib.bytes2short(indirectBlock,
+								(relativeBlock - Inode.directSize) * 2);
 					}
 				}
 			}
@@ -231,11 +232,13 @@ public class FileSystem
 			//number of bytes to read into buffer
 			int bytesLeft = buffer.length;
 			//bytes to append to file
-			int extraBytes = Math.max(bytesLeft + ftEnt.seekPtr - ftEnt.inode.length, 0);
+			int extraBytes = Math.max(bytesLeft + ftEnt.seekPtr - 
+										ftEnt.inode.length, 0);
 			//seekPtr relative block in file
 			int relativeBlock = ftEnt.seekPtr / Disk.blockSize;
 			//check if indirect block is needed
-			int blocksToAlloc = (extraBytes + (ftEnt.seekPtr % Disk.blockSize)) / Disk.blockSize;
+			int blocksToAlloc = (extraBytes + (ftEnt.seekPtr % Disk.blockSize)) 
+								/ Disk.blockSize;
 
 			if (blocksToAlloc + relativeBlock > Inode.directSize)
 			{
@@ -290,11 +293,13 @@ public class FileSystem
 					}
 					else if (indirectBlock != null)
 					{
-						nextBlock = (int)SysLib.bytes2short(indirectBlock, (relativeBlock - Inode.directSize) * 2);
+						nextBlock = (int)SysLib.bytes2short(indirectBlock, 
+									(relativeBlock - Inode.directSize) * 2);
 						if (nextBlock == Inode.NULL_PTR)
 						{
 							nextBlock = superblock.getFreeBlock();
-							SysLib.short2bytes((short)nextBlock, indirectBlock, (relativeBlock - Inode.directSize) * 2);
+							SysLib.short2bytes((short)nextBlock, indirectBlock, 
+									(relativeBlock - Inode.directSize) * 2);
 						}
 					}
 				}
