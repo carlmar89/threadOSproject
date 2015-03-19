@@ -1,3 +1,76 @@
+/*
+FileSystem.java
+Author:     Carl Martinez
+Date:       3/18/2015
+Description:
+    Creates a file system for threadOS. Contains system call methods
+    and maintains the entire file system. A file system system call
+    will be called through SysLib. SysLib will call a Kernel interrupt
+    which in turn will call a FileSystem method. All methods return -1
+    or false upon error.
+Public Methods:
+	public FileSystem(int diskBlocks)
+		Initialized the file system. Will seach the DISK for a previous
+		iteration and load it in, otherwise will call format().
+	boolean format(int files)
+		Parameters:
+			files: max number of files to allow on DISK
+		Restarts the file system and clears DISK of all files along wtih
+		all file system sub-classes.
+		Returns true on success.
+	FileTableEntry open(String fileName, String mode)
+		Parameters:
+			fileName: name of file to open/create
+			mode: "r" for read only
+				  "w" for write only
+				  "w+" for read/write
+				  "a" for append
+		Loads file into the FileTable and returns the FileTableEntry.
+		If file does not exist and mode is w/w+/a it will create a new
+		file.
+		Returns FileTableEntry of file opened.
+	int read(FileTableEntry ftEnt, byte[] buffer)
+		Parameters:
+			ftEnt: FileTableEntry of the file to be read
+			buffer: where data is read into
+		Reads data from an open file into buffer. Reads buffer size amount
+		of data or until the end of file.
+		Returns bytes read.
+	int write(FileTableEntry ftEnt, byte[] buffer)
+		Parameters:
+			ftEnt: FileTableEntry of the file to be written to
+		Writes buffer's data into a file. Will append to the file if data
+		to be written exceeds file length.
+		Returns bytes written.
+	int seek(FileTableEntry ftEnt, int offset, int whence)
+		Parameters:
+			ftEnt: FileTableEntry of the file to adjust seekPtr of
+			offset: relative distance to adject seekPtr
+			whence: 0 for SEEK_SET, start offset at beginning of file
+					1 for SEEK_CUR, start offset where seekPtr currently is
+					2 for SEEK_END, start offset at end of file
+			Sets the seekPtr of the file to specified location determined by
+			the offset and the whence setting. If seekPtr is set beyond the
+			file it will be set to the beginning or end of the file.
+			Returns where seekPtr is in the file.
+	boolean close(FileTableEntry ftEnt)
+		Parameters:
+			ftEnt: FileTableEntry of the file to close
+		Closes a file that is open.
+		Returns true on success.
+	boolean delete(String fileName)
+		Parameters:
+			fileName: name of file to be deleted
+		Deletes a file specified by fileName.
+		Returns true on success.
+	int fsize(FileTableEntry ftEnt)
+		Parameters:
+			ftEnt: FileTableEntry of the file
+		Returns the size of a specified file.
+	void sync()
+		Syncs superblock to disk.    
+ */
+
 import java.lang.Exception;
 import java.util.*;
 
@@ -40,7 +113,8 @@ public class FileSystem
 		byte[] buffer = new byte[Disk.blockSize];
 		//update superblock
 		superblock.totalInodes = files;
-		superblock.freeList = (int)Math.ceil(files / (double)(Disk.blockSize / inode.iNodeSize) + 1);
+		superblock.freeList = (int)Math.ceil(files / 
+						(double)(Disk.blockSize / inode.iNodeSize) + 1);
 		superblock.lastFreeBlock = superblock.totalBlocks - 1;
 		//write superblock to disk
 		superblock.sync();
@@ -72,52 +146,54 @@ public class FileSystem
 
 	public synchronized int read(FileTableEntry ftEnt, byte[] buffer)
 	{
-		if (ftEnt.mode.equals("w") || ftEnt.mode.equals("a") || ftEnt.inode.length <= 2 || buffer.length == 0)
-			return -1;
-
-		byte[] temp = new byte[Disk.blockSize];
-
-		if (ftEnt.seekPtr < 2)
-		{
-			ftEnt.seekPtr = 2;
-		}
-
-		//number of bytes to read into buffer
-		int totalBytes = Math.min(ftEnt.inode.length - ftEnt.seekPtr, buffer.length);
-		int bytesLeft = totalBytes;
-		//get block where seekPtr is
-		int block = getEntBlock(ftEnt);
-		int index = 0;
-		int currentBytes = 0;
-		int bytesRead = 0;
-		//read file into buffer
-		while(bytesLeft > 0)
-		{
-			if (block < 0)
-			{
-				return -1;
-			}
-			SysLib.rawread(block, temp);
-			currentBytes = Math.min(bytesLeft, Disk.blockSize - (ftEnt.seekPtr % Disk.blockSize));
-			//read current block of data into buffer
-			for (int i = 0; i < currentBytes; i++)
-			{
-				buffer[index++] = temp[i + ftEnt.seekPtr % Disk.blockSize];
-			}
-			bytesRead += currentBytes;
-			ftEnt.seekPtr += currentBytes;
-			bytesLeft -= currentBytes;
-			//goto next block if more bytes to read
-			if(bytesLeft > 0)
-			{
-				block = (int)SysLib.bytes2short(temp, 0);
-				ftEnt.seekPtr += 2;	//skip over pointer
-			}
-		}
-		return bytesRead;
-		/*
 		try
 		{
+			if (ftEnt.mode.equals("w") || ftEnt.mode.equals("a") 
+				|| ftEnt.inode.length <= 2 || buffer.length == 0)
+				return -1;
+
+			byte[] temp = new byte[Disk.blockSize];
+
+			if (ftEnt.seekPtr < 2)
+			{
+				ftEnt.seekPtr = 2;
+			}
+
+			//number of bytes to read into buffer
+			int totalBytes = Math.min(ftEnt.inode.length - ftEnt.seekPtr,
+										 buffer.length);
+			int bytesLeft = totalBytes;
+			//get block where seekPtr is
+			int block = getEntBlock(ftEnt);
+			int index = 0;
+			int currentBytes = 0;
+			int bytesRead = 0;
+			//read file into buffer
+			while(bytesLeft > 0)
+			{
+				if (block < 0)
+				{
+					return -1;
+				}
+				SysLib.rawread(block, temp);
+				currentBytes = Math.min(bytesLeft, Disk.blockSize - 
+								(ftEnt.seekPtr % Disk.blockSize));
+				//read current block of data into buffer
+				for (int i = 0; i < currentBytes; i++)
+				{
+					buffer[index++] = temp[i + ftEnt.seekPtr % Disk.blockSize];
+				}
+				bytesRead += currentBytes;
+				ftEnt.seekPtr += currentBytes;
+				bytesLeft -= currentBytes;
+				//goto next block if more bytes to read
+				if(bytesLeft > 0)
+				{
+					block = (int)SysLib.bytes2short(temp, 0);
+					ftEnt.seekPtr += 2;	//skip over pointer
+				}
+			}
+			return bytesRead;
 
 		}
 		catch(Exception e)
@@ -125,7 +201,7 @@ public class FileSystem
 			SysLib.cerr(e.toString());
 			return -1;
 		}
-		*/
+
 
 	}
 	public synchronized int write(FileTableEntry ftEnt, byte[] buffer)
@@ -144,7 +220,8 @@ public class FileSystem
 			//seekPtr relative block in file
 			int relativeBlock = ftEnt.seekPtr / Disk.blockSize;
 			//check if indirect block is needed
-			int blocksToAlloc = (extraBytes + (ftEnt.seekPtr % Disk.blockSize)) / Disk.blockSize;
+			int blocksToAlloc = (extraBytes + (ftEnt.seekPtr % Disk.blockSize))
+											/ Disk.blockSize;
 			if (blocksToAlloc + relativeBlock > Inode.directSize)
 			{
 				indirectBlock = new byte[Disk.blockSize];
@@ -171,7 +248,8 @@ public class FileSystem
 			while(bytesLeft > 0)
 			{
 				SysLib.rawread(block, temp);
-				currentBytes = Math.min(bytesLeft, Disk.blockSize - (ftEnt.seekPtr % Disk.blockSize));
+				currentBytes = Math.min(bytesLeft, Disk.blockSize - 
+								(ftEnt.seekPtr % Disk.blockSize));
 				//write to current block
 				for (int i = 0; i < currentBytes; i++)
 				{
@@ -201,12 +279,15 @@ public class FileSystem
 							ftEnt.seekPtr += 2;	//skip over pointer
 							if (++relativeBlock < Inode.directSize)
 							{
-								ftEnt.inode.direct[relativeBlock] = (short)nextBlock;
+								ftEnt.inode.direct[relativeBlock] = 
+												(short)nextBlock;
 							}
 							else
 							{
 								if (indirectBlock != null)
-									SysLib.short2bytes((short)nextBlock, indirectBlock, (relativeBlock - Inode.directSize) * 2);
+									SysLib.short2bytes((short)nextBlock, 
+									indirectBlock, (relativeBlock - 
+												Inode.directSize) * 2);
 							}
 						}
 					}
@@ -215,7 +296,8 @@ public class FileSystem
 				}
 				else
 				{
-					SysLib.short2bytes(SuperBlock.NULL_PTR, temp, 0);	//set final file block pointer to null
+					//set final file block pointer to null
+					SysLib.short2bytes(SuperBlock.NULL_PTR, temp, 0);
 				}
 				SysLib.rawwrite(block, temp);
 				block = nextBlock;
@@ -256,21 +338,29 @@ public class FileSystem
 				case SEEK_CUR:
 					if (offset > 0)
 					{
+						//calculate headers
 						pointers = offset / Disk.blockSize;
-						pointers += (ftEnt.seekPtr % Disk.blockSize + offset % Disk.blockSize) / Disk.blockSize;
+						pointers += (ftEnt.seekPtr % Disk.blockSize +
+							offset % Disk.blockSize) / Disk.blockSize;
 					}
 					else if (offset < 0)
 					{
+						//calculate headers
 						pointers = offset / Disk.blockSize;
-						pointers -= ((Disk.blockSize - (ftEnt.seekPtr % Disk.blockSize)) - offset % Disk.blockSize) / Disk.blockSize;
+						pointers -= ((Disk.blockSize - 
+							(ftEnt.seekPtr % Disk.blockSize)) - 
+							offset % Disk.blockSize) / Disk.blockSize;
 					}
 					ftEnt.seekPtr += offset + pointers * 2;
 					break;
 				case SEEK_END:
 					if (offset < 0)
 					{
+						//calculate headers
 						pointers = offset / Disk.blockSize;
-						pointers -= ((Disk.blockSize - (ftEnt.inode.length % Disk.blockSize)) - offset % Disk.blockSize) / Disk.blockSize;
+						pointers -= ((Disk.blockSize - 
+							(ftEnt.inode.length % Disk.blockSize)) - 
+							offset % Disk.blockSize) / Disk.blockSize;
 						ftEnt.seekPtr = ftEnt.inode.length + offset + pointers * 2;
 					}
 					break;
@@ -297,7 +387,7 @@ public class FileSystem
 	{
 		return filetable.ffree(ftEnt);
 	}
-	//need to wait until file is closed
+
 	public synchronized boolean delete(String fileName)
 	{
 		try
