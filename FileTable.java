@@ -1,25 +1,38 @@
+//------------------------------------------------------------------------------
+// File:		FileTable.java
+// Author:		Terry Rogers
+// Date:		3/18/2015
+// Description: The FileTable maintains the structure of the FileSystem. The
+//				sole purpose of the table is to contain file table entries which
+//				are allocated via open and close methods named falloc and ffree,
+//				respectively. The FileSystem open and close methods are
+//				essentially wrappers around the FileTable methods.
+//------------------------------------------------------------------------------
 import java.lang.Exception;
 import java.util.*;
 
 public class FileTable
 {
-	private Vector<FileTableEntry> table;		// the actual entity of this file table
-	private Directory dir;		// the root directory 
+	private Vector<FileTableEntry> table;// the actual entity of this file table
+	private Directory dir;		         // the root directory 
 
+//------------------------------------------------------------------------------
+// Default Constructor
+//------------------------------------------------------------------------------
 	public FileTable(Directory directory)
 	{
-		table = new Vector<FileTableEntry>();     // instantiate a file (structure) table
-		dir = directory;           // receive a reference to the Director
-	}                             // from the file system
+		table = new Vector<FileTableEntry>(); // instantiate a file table
+		dir = directory;           // receive a reference to the Directory
+	}                              // from the file system
 
-	// major public methods
+//------------------------------------------------------------------------------
+// Allocates a new file (structure) table entry for the given filename.
+// Allocate/retrieve and register the corresponding Inode, increments the
+// Inode's count, immediately writes the Inode back to the disk, and returns
+// a reference to this file (structure) table entry.
+//------------------------------------------------------------------------------
 	public synchronized FileTableEntry falloc(String filename, String mode)
 	{
-		// allocate a new file (structure) table entry for this file name
-		// allocate/retrieve and register the corresponding inode using dir
-		// increment this inode's count
-		// immediately write back this inode to the disk
-		// return a reference to this file (structure) table entry
 		short iNumber = -1;
 		Inode inode = null;
 
@@ -120,13 +133,13 @@ public class FileTable
 		return entry;
 	}
 
+//------------------------------------------------------------------------------
+// Receives a file table entry reference, saves the corresponding Inode to the
+// disk, and frees this file table entry. Returns true if this file table entry
+// found in the table. Fales otherwise, or if an error occurs.
+//------------------------------------------------------------------------------
 	public synchronized boolean ffree(FileTableEntry entry)
 	{
-		// receive a file table entry reference
-		// save the corresponding inode to the disk
-		// free this file table entry.
-		// return true if this file table entry found in my table
-
 		if(entry == null)
 			return false;
 
@@ -139,9 +152,9 @@ public class FileTable
 			// then we need to decrease the inode count as well.
 			if(entry.count == 0)
 			{
-				// If the file table entry is no longer being used by any thread,
-				// then we should decrease the amount of entries associated with
-				// the Inode.
+				// If the file table entry is no longer being used by any
+				// thread, then we should decrease the amount of entries
+				// associated with the Inode.
 				entry.inode.count--;
 
 				if(entry.inode.count == 0)
@@ -160,6 +173,9 @@ public class FileTable
 		return false;
 	}
 
+//------------------------------------------------------------------------------
+// Checks to see if the FileTable is empty.
+//------------------------------------------------------------------------------
 	public synchronized boolean fempty()
 	{
 		return table.isEmpty( );  // return if table is empty 

@@ -1,3 +1,12 @@
+//------------------------------------------------------------------------------
+// File:		Inode.java
+// Author:		Terry Rogers
+// Date:		3/18/2015
+// Description: The basic building blocks of files. Files can only exist if they
+//				are associated with an Inode. Contains pointers to blocks that
+//				house the data associated with the file.
+//------------------------------------------------------------------------------
+
 import java.lang.Exception;
 import java.util.*;
 
@@ -17,11 +26,15 @@ public class Inode
 	public final static short DELETE = 4;
 
 	public int length;                             // file size in bytes
-	public short count;                            // # file-table entries pointing to this
+	public short count;                            // # file-table entries 
+												   // pointing to this
 	public short flag;                             // 0 = unused, 1 = used, ...
 	public short direct[] = new short[directSize]; // direct pointers
 	public short indirect;                         // a indirect pointer
 
+//------------------------------------------------------------------------------
+// Default Constructor
+//------------------------------------------------------------------------------
 	Inode()
 	{
 		length = 0;
@@ -34,6 +47,10 @@ public class Inode
 		indirect = NULL_PTR;
 	}
 
+//------------------------------------------------------------------------------
+// Alternative Constructor that takes in an iNumber to pull the resepective
+// Inode from disk.
+//------------------------------------------------------------------------------
 	Inode(short iNumber)
 	{
 		this();
@@ -83,6 +100,9 @@ public class Inode
 		}
 	}
 
+//------------------------------------------------------------------------------
+// Pushes the current Inode back to disk.
+//------------------------------------------------------------------------------
 	public void toDisk(short iNumber) 
 	{
 		short blockNumber = getBlockNumber(iNumber);
@@ -133,7 +153,9 @@ public class Inode
 		}
 	}
 
-	// Returns the block number that the iNode resides in.
+//------------------------------------------------------------------------------
+// Returns the block number of the Inode pointed to by iNumber.
+//------------------------------------------------------------------------------
 	public static short getBlockNumber(short iNumber)
 	{
 		// Offset by 1 since the SuperBlock is indexed at 0.
@@ -145,6 +167,9 @@ public class Inode
 		return blockNumber;
 	}
 
+//------------------------------------------------------------------------------
+// Returns the offset within an Inode block of the Inode pointed to by iNumber.
+//------------------------------------------------------------------------------
 	public static short getBlockOffset(short iNumber)
 	{
 		if(iNumber < 0)

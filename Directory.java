@@ -1,3 +1,11 @@
+//------------------------------------------------------------------------------
+// File:		Directory.java
+// Author:		Terry Rogers
+// Date:		3/18/2015
+// Description: The directory is basic logical container for all files within
+//				the FileSystem. Currently only single-level directories are
+//				supported. All filenames must be unique as a result.
+//------------------------------------------------------------------------------
 import java.lang.Exception;
 import java.util.*;
 
@@ -9,6 +17,9 @@ public class Directory
 	private int fsizes[];        // each element stores a different file size.
 	private char fnames[][];    // each element stores a different file name.
 
+//------------------------------------------------------------------------------
+// Default Constructor
+//------------------------------------------------------------------------------
 	public Directory(int maxInumber)
 	{
 		fsizes = new int[maxInumber];     // maxInumber = max files
@@ -20,10 +31,12 @@ public class Directory
 		root.getChars( 0, fsizes[0], fnames[0], 0 ); // fnames[0] includes "/"
 	}
 
+//------------------------------------------------------------------------------
+// Assumes data[] received directory information from disk, and initializes the
+// Directory instance with this data[].
+//------------------------------------------------------------------------------
 	public void bytes2directory(byte data[])
 	{
-	 // assumes data[] received directory information from disk
-	 // initializes the Directory instance with this data[]
 		int offset = 0;
 		for (int i = 0; i < fsizes.length; i++)
 		{
@@ -38,13 +51,13 @@ public class Directory
 		}
 	}
 
+//------------------------------------------------------------------------------
+// Converts and return Directory information into a plain byte array. This byte
+// array will be written back to disk.
+// Note: only meaningfull directory information should be converted into bytes.
+//------------------------------------------------------------------------------
 	public byte[] directory2bytes()
 	{
-		// converts and return Directory information into a plain byte array
-		// this byte array will be written back to disk
-		// note: only meaningfull directory information should be converted
-		// into bytes.
-
 		int numberOfBytes = 0;
 
 		// Number of bytes needed for all file sizes.
@@ -84,11 +97,11 @@ public class Directory
 		return buffer;
 	}
 
+//------------------------------------------------------------------------------
+// Creates a file with the given filename. Allocates a new iNumber for the file.
+//------------------------------------------------------------------------------
 	public short ialloc(String filename)
 	{
-		// filename is the one of a file to be created.
-		// allocates a new inode number for this filename
-
 		if(filename != null && !filename.isEmpty())
 		{
 			for(short i = 0; i < fsizes.length; i++)
@@ -106,11 +119,12 @@ public class Directory
 		return -1;
 	}
 
+//------------------------------------------------------------------------------
+// Deallocates the Inode associated with the gven iNumber. The corresponding
+// file will be deleted.
+//------------------------------------------------------------------------------
 	public boolean ifree(short iNumber)
 	{
-		// deallocates this inumber (inode number)
-		// the corresponding file will be deleted.
-
 		if(iNumber >= 0 && iNumber < fsizes.length)
 		{
 			fsizes[iNumber] = 0;
@@ -122,10 +136,11 @@ public class Directory
 		return false;
 	}
 
+//------------------------------------------------------------------------------
+// Returns the iNumber corresponding to the given filename.
+//------------------------------------------------------------------------------
 	public short namei(String filename)
 	{
-		// returns the inumber corresponding to this filename
-
 		String currentFilename = null;
 
 		for(short i = 0; i < fsizes.length; i++)

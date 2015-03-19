@@ -1,3 +1,12 @@
+//------------------------------------------------------------------------------
+// File:		SuperBlock.java
+// Author:		Terry Rogers
+// Date:		3/18/2015
+// Description: The first block on disk that contains information regarding the
+//				blocks within the system. Contains information about the total
+//				number of blocks, total number Inode blocks, the pointer to the
+//				first free block, and the pointeto the last free block.
+//------------------------------------------------------------------------------
 import java.lang.Exception;
 import java.util.*;
 
@@ -11,6 +20,9 @@ public class SuperBlock
 	public int freeList;    // the block number of the free list's head
 	public int lastFreeBlock;
 
+//------------------------------------------------------------------------------
+// Default Constructor
+//------------------------------------------------------------------------------
 	public SuperBlock()
 	{
 		byte[] superBlock = new byte[Disk.blockSize];
@@ -21,25 +33,17 @@ public class SuperBlock
 		totalInodes = SysLib.bytes2int(superBlock, 4);
 		freeList = SysLib.bytes2int(superBlock, 8);
 		lastFreeBlock = SysLib.bytes2int(superBlock, 12);
+	}
 
+//------------------------------------------------------------------------------
+// Checks the validity of the SuperBlock, and formats the FileSystem if the
+// SuperBlock appears to be invalid.
+//------------------------------------------------------------------------------
+	public boolean formatCheck()
+	{
 		// The freeList has to be 2 or greater since the first block (index 0)
 		// is the SuperBlock, and the the second block (index 1) contains
 		// information about Inodes.
-		/*
-		if(totalBlocks != Kernel.NUM_BLOCKS || totalInodes <= 0 || 
-			freeList < 2 || freeList >= totalBlocks && 
-			lastFreeBlock < 2 || lastFreeBlock >= totalBlocks)
-		{
-			totalBlocks = Kernel.NUM_BLOCKS;
-			lastFreeBlock = totalBlocks - 1;
-
-			SysLib.format(DEFAULT_INODE_BLOCKS);
-		}
-		*/
-	}
-
-	public boolean formatCheck()
-	{
 		if (totalBlocks != Kernel.NUM_BLOCKS || totalInodes <= 0 || 
 			freeList < 2 || freeList >= totalBlocks && 
 			lastFreeBlock < 2 || lastFreeBlock >= totalBlocks)
@@ -51,6 +55,9 @@ public class SuperBlock
 		return false;
 	}
 
+//------------------------------------------------------------------------------
+// Syncs the SuperBlock by writing it back to disk.
+//------------------------------------------------------------------------------
 	public void sync()
 	{
 		byte[] buffer = new byte[Disk.blockSize];
@@ -65,6 +72,9 @@ public class SuperBlock
 		SysLib.rawwrite(0, buffer);
 	}
 
+//------------------------------------------------------------------------------
+// Grabs a free block from the SuperBlock free block list.
+//------------------------------------------------------------------------------
 	public int getFreeBlock()
 	{
 		// Store the current free block temporarily.
@@ -93,6 +103,9 @@ public class SuperBlock
 		return currentFreeBlock;
 	}
 
+//------------------------------------------------------------------------------
+// Returns a block back to the SuperBlock free block list.
+//------------------------------------------------------------------------------
 	public void returnBlock(short blockNumber)
 	{
 		int firstFreeBlock = DEFAULT_INODE_BLOCKS / 
